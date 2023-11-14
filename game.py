@@ -4,7 +4,8 @@ import random
 
 from enum import Enum
 
-from brains import StupidBrain
+from brains import HorizontalDirectionBrain, StupidBrain
+from utils import NeuronInput
 
 # Initialize Pygame
 pygame.init()
@@ -107,14 +108,16 @@ def main():
                 draw_title_screen(screen, font)
             case GameStates.STARTING:
                 game_state.state = GameStates.GAME
-                brain = StupidBrain()
+                # brain = StupidBrain()
+                brain = HorizontalDirectionBrain()
             case GameStates.GAME:
                 mouse_pos, mouse_speed = handle_events_game_screen(game_state)
                 draw_game_screen(screen, font, mouse_pos, mouse_speed)
 
 
                 # Update the brain
-                brain.update(mouse_speed)
+                neuron_input = NeuronInput(mouse_speed) 
+                brain.update(neuron_input)
                 # Get the spikes
                 spikes = brain.get_n_recent_spikes(100)
                 # Draw the spikes
