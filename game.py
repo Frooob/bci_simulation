@@ -4,7 +4,7 @@ import random
 
 from enum import Enum
 
-from brains import HorizontalDirectionBrain, StupidBrain
+from brains import StraightDirectionSimpleBrain, SimpleBrain
 from utils import NeuronInput
 
 # Initialize Pygame
@@ -97,8 +97,6 @@ def main():
     game_state = GameState()
     brain = None
     
-    spike_train_data = [0] * 100
-
    
     while True:
         # Screen Events
@@ -109,7 +107,7 @@ def main():
             case GameStates.STARTING:
                 game_state.state = GameStates.GAME
                 # brain = StupidBrain()
-                brain = HorizontalDirectionBrain()
+                brain = StraightDirectionSimpleBrain()
             case GameStates.GAME:
                 mouse_pos, mouse_speed = handle_events_game_screen(game_state)
                 draw_game_screen(screen, font, mouse_pos, mouse_speed)
@@ -121,8 +119,12 @@ def main():
                 # Get the spikes
                 spikes = brain.get_n_recent_spikes(100)
                 # Draw the spikes
-                draw_spike_train(screen, spikes[0], screen_height - 20, 10, screen_width / len(spike_train_data))
-                draw_spike_train(screen, spikes[1], screen_height - 40, 10, screen_width / len(spike_train_data))
+
+                for num, spike_train in enumerate(spikes):
+                    draw_spike_train(screen, spike_train, screen_height - 20 - num * 20, 10, screen_width / len(spike_train_data))
+
+                # draw_spike_train(screen, spikes[0], screen_height - 20, 10, screen_width / len(spike_train_data))
+                # draw_spike_train(screen, spikes[1], screen_height - 40, 10, screen_width / len(spike_train_data))
 
             case GameStates.END:
                 ...

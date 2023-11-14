@@ -1,6 +1,6 @@
 import random
 
-from neurons import HorizontalDirectionSimpleNeuron, Neuron, SimpleNeuron
+from neurons import StraightDirectionSimpleNeuron, Neuron, SimpleNeuron
 
 class Brain():
     def __init__(self) -> None:
@@ -23,7 +23,7 @@ class Brain():
             neuron.update(input_data)
         
 
-class StupidBrain(Brain):
+class SimpleBrain(Brain):
     def __init__(self) -> None:
         super().__init__()
         self.neurons = [SimpleNeuron() for i in range(2)]
@@ -38,7 +38,10 @@ class StupidBrain(Brain):
         self.update_rate += 1
 
 
-class HorizontalDirectionBrain(StupidBrain):
+class StraightDirectionSimpleBrain(SimpleBrain):
     def __init__(self) -> None:
         super().__init__()
-        self.neurons = [HorizontalDirectionSimpleNeuron("right"), HorizontalDirectionSimpleNeuron("left")]
+        self.neurons = [StraightDirectionSimpleNeuron("right"), 
+                        StraightDirectionSimpleNeuron("left"),
+                        StraightDirectionSimpleNeuron("up"),
+                        StraightDirectionSimpleNeuron("down")]
