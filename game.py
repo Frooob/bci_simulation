@@ -50,7 +50,7 @@ def handle_common_events(event):
         pygame.quit()
         sys.exit()
     elif event.type == pygame.KEYUP:
-        if event.key == pygame.K_ESCAPE:
+        if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
             pygame.quit()
             sys.exit()
 

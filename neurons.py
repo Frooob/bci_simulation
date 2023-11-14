@@ -31,15 +31,17 @@ class SimpleNeuron(Neuron):
         # Spikes in 20% of the cases
         return random.random() > 0.8
 
-class StraightDirectionSimpleNeuron(Neuron):
+class StraightDirectionSimpleNeuron(SimpleNeuron):
     def __init__(self, direction:str) -> None:
         super().__init__()
         self.direction = direction
     
     def spike_method(self, input_data: NeuronInput, dt):
-        x_speed = input_data.mouse_speed[0] / 1.5
-        y_speed = input_data.mouse_speed[1] / 1.5
-        spike_chance = 0.1
+        x_speed_factor = 1.5
+        y_speed_factor = 2.5
+        x_speed = input_data.mouse_speed[0] * x_speed_factor
+        y_speed = input_data.mouse_speed[1] * y_speed_factor
+        spike_chance = 0.03
         if self.direction == "left":
             speed = x_speed * -1
         elif self.direction == "right":
@@ -52,8 +54,8 @@ class StraightDirectionSimpleNeuron(Neuron):
             raise ValueError("Invalid direction")
         if speed > 0:
             spike_chance = spike_chance * speed
-
         return spike_chance > random.random()
+    
 if __name__ == "__main__":
     # Usage
     neuron = SimpleNeuron()
