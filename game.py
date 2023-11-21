@@ -60,13 +60,13 @@ class RecordingState():
     
     def start_recording(self, game_output: GameOutput, brain: Brain):
         self.state = RecordingStates.RECORDING
-        filename = f"recording_{time.time()}.csv"
+        filename = f"./recordings/recording_{time.time()}.csv"
         self.recording_file_buffer = open(filename, "w")
         # draw header according to game_output
-        self.recording_file_buffer.write("time, mouse_x, mouse_y, mouse_speed_x, mouse_speed_y")
+        self.recording_file_buffer.write("time,mouse_x,mouse_y,mouse_speed_x,mouse_speed_y")
         # for each neuron in the brain add a column
         for num, neuron in enumerate(brain.neurons):
-            self.recording_file_buffer.write(f", neuron_{num}")
+            self.recording_file_buffer.write(f",neuron_{num}")
         self.recording_file_buffer.write("\n")
         self.add_recording(game_output, brain)
     

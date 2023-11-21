@@ -36,7 +36,7 @@ class StraightDirectionSimpleNeuron(SimpleNeuron):
         super().__init__()
         self.direction = direction
     
-    def spike_method(self, input_data: NeuronInput, dt):
+    def spike_method(self, input_data: NeuronInput, dt, baseline_noise=False):
         x_speed_factor = 1.5
         y_speed_factor = 2.5
         x_speed = input_data.mouse_speed[0] * x_speed_factor
@@ -54,6 +54,8 @@ class StraightDirectionSimpleNeuron(SimpleNeuron):
             raise ValueError("Invalid direction")
         if speed > 0:
             spike_chance = spike_chance * speed
+        elif not baseline_noise:
+            return 0
         return spike_chance > random.random()
     
 if __name__ == "__main__":
