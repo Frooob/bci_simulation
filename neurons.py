@@ -56,7 +56,7 @@ class StraightDirectionSimpleNeuron(SimpleNeuron):
             spike_chance = spike_chance * speed
         elif not baseline_noise:
             return 0
-        return spike_chance > random.random()
+        return int(spike_chance > random.random())
     
 if __name__ == "__main__":
     # Usage

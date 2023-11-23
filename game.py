@@ -3,9 +3,11 @@ import sys
 import random
 
 from enum import Enum
+import numpy as np
 
 from brains import StraightDirectionSimpleBrain, SimpleBrain, Brain
 from utils import NeuronInput
+from filters import SimpleKalmanFilter
 import time
 
 # Initialize Pygame
@@ -22,7 +24,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 
 # Set the starting position of the circle
-circle_pos = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
+MIDDLE = np.array((screen.get_width() / 2, screen.get_height() / 2))
 
 # Setup the font for displaying the speed
 font = pygame.font.Font(None, 36)
@@ -38,6 +40,12 @@ class GameOutput():
     def __init__(self):
         self.mouse_pos = None
         self.rel_speed = None
+    
+    def state_for_kalman_filter(self):
+        return [self.mouse_pos[0], self.mouse_pos[1], self.rel_speed[0], self.rel_speed[1],1] # Add 1 in the end for the possibility of noise correction
+
+    def state_for_recording(self):
+        return [self.mouse_pos[0], self.mouse_pos[1], self.rel_speed[0], self.rel_speed[1]]
 
 class GameStates(Enum):
     TITLE = 0
@@ -71,8 +79,9 @@ class RecordingState():
         self.add_recording(game_output, brain)
     
     def add_recording(self, game_output: GameOutput, brain: Brain):
+        posx, posy, velx, vely = game_output.state_for_recording()
         self.recording_file_buffer.write(
-            f"{time.time()}, {game_output.mouse_pos[0]}, {game_output.mouse_pos[1]}, {game_output.rel_speed[0]}, {game_output.rel_speed[1]}")
+            f"{time.time()}, {posx}, {posy}, {velx}, {vely}")
         for neuron in brain.neurons:
             self.recording_file_buffer.write(f", {int(neuron.spike_train.data[-1][1])}")
         self.recording_file_buffer.write("\n")
@@ -101,7 +110,7 @@ def handle_events_title_screen(game_state: GameState):
             if event.key == pygame.K_SPACE:
                 game_state.state = GameStates.STARTING
 
-def handle_events_game_screen(game_state: GameState, recording_state: RecordingState, game_output: GameOutput, brain: Brain):
+def handle_events_game_screen(game_state: GameState, recording_state: RecordingState, game_output: GameOutput, brain: Brain, kalman_filter: SimpleKalmanFilter):
     for event in pygame.event.get():
         handle_common_events(event)
         if event.type == pygame.KEYDOWN:
@@ -111,10 +120,18 @@ def handle_events_game_screen(game_state: GameState, recording_state: RecordingS
                 if recording_state.state == RecordingStates.RECORDING:
                     recording_state.stop_recording()
                 else:
-                    print("Start recording")
                     recording_state.start_recording(game_output, brain)
+            if event.key == pygame.K_s:
+                set_filter_and_mouse_to_middle(kalman_filter)
+            if event.key == pygame.K_t:
+                kalman_filter.train_mode = not kalman_filter.train_mode
+                kalman_filter.aquiring_traing_data = not kalman_filter.aquiring_traing_data
+            if event.key == pygame.K_p:
+                kalman_filter.prediction_mode = not kalman_filter.prediction_mode
+
     mouse_pos = pygame.mouse.get_pos()
     mouse_speed = pygame.mouse.get_rel()
+    mouse_pos = np.array(mouse_pos) - MIDDLE
     game_output.mouse_pos = mouse_pos
     game_output.rel_speed = mouse_speed
 
@@ -131,11 +148,15 @@ def draw_game_screen(screen, font, recording_state, game_output):
     screen.fill(BLACK)
     text = font.render(f"Pos: {mouse_pos} Speed: {mouse_speed}", True, WHITE)
     screen.blit(text, (10, 10))
-    pygame.draw.circle(screen, WHITE, mouse_pos, 20)
+    mouse_pos_display = mouse_pos + MIDDLE # to draw the mouse on the correct position
+    pygame.draw.circle(screen, WHITE, mouse_pos_display, 20)
     # draw a little flashing red circle on the top right if recording_state is recording
     if recording_state.state == RecordingStates.RECORDING:
         if time.time() % 1 < 0.5:
             pygame.draw.circle(screen, RED, (screen_width - 20, 20), 10)
+
+def draw_predicted_pos(screen, predicted_pos):
+    pygame.draw.circle(screen, RED, predicted_pos + MIDDLE, 20)
 
 def draw_spike_train(screen, spike_train, ypos, line_height, line_spacing):
     for i, value in enumerate(spike_train):
@@ -149,15 +170,20 @@ def game_logic(recording_state: RecordingState, game_output: GameOutput, brain: 
     if recording_state.state == RecordingStates.RECORDING:
         recording_state.add_recording(game_output, brain)
 
+def set_filter_and_mouse_to_middle(kalman_filter: SimpleKalmanFilter):
+    pygame.mouse.set_pos(*MIDDLE)
+    kalman_filter.current_state = np.array((0,0,0,0,1), dtype=np.float64)
+
 def main():
     game_state = GameState()
     brain = None
     recording_state = RecordingState()
     game_output = GameOutput()
+    kalman_filter = SimpleKalmanFilter()
 
    
     while True:
-        dt = time.time()
+        t = time.time()
         # Screen Events
         match game_state.state:
             case GameStates.TITLE:
@@ -167,22 +193,41 @@ def main():
                 game_state.state = GameStates.GAME
                 # brain = StupidBrain()
                 brain = StraightDirectionSimpleBrain()
+                set_filter_and_mouse_to_middle(kalman_filter)
+                kalman_filter.get_sensible_defaults() # TODO: remove this
             case GameStates.GAME:
-                handle_events_game_screen(game_state, recording_state, game_output, brain)
-                draw_game_screen(screen, font, recording_state, game_output)
+                ## Handle events and get new data
+                handle_events_game_screen(game_state, recording_state, game_output, brain, kalman_filter)  # Writes to game_output new position
 
-                # Update the brain
+                ## Logic of the game and brain
                 neuron_input = NeuronInput(game_output.rel_speed) 
                 brain.update(neuron_input)
-                # Get the spikes
+                game_logic(recording_state, game_output, brain)
+                new_measurement = brain.get_most_recent_measurement()
+                if kalman_filter.aquiring_traing_data:
+                    kalman_filter.add_training_data(game_output.state_for_kalman_filter(), new_measurement)
+                if kalman_filter.train_mode:
+                    kalman_filter.train()
+                if kalman_filter.prediction_mode:
+                    predicted_state = kalman_filter.predict(new_measurement, t)
+                    if predicted_state is not None:
+                        predicted_pos = predicted_state[:2]
+                else: 
+                    predicted_pos = None
+                    
+                # Optional: Make this thing kinda frustrating
+                if predicted_pos is not None:
+                    pygame.mouse.set_pos(*predicted_pos)
+                    game_output.mouse_pos = predicted_pos
+                ## Draw everything on screen
+                draw_game_screen(screen, font, recording_state, game_output)
+                if predicted_pos is not None:
+                    draw_predicted_pos(screen, predicted_pos)
                 show_n_spikes = 100
                 spikes = brain.get_n_recent_spikes(show_n_spikes)
                 # Draw the spikes
-
                 for num, spike_train in enumerate(spikes):
-                    draw_spike_train(screen, spike_train, screen_height - 20 - num * 20, 10, screen_width / show_n_spikes)
-
-                game_logic(recording_state, game_output, brain)
+                    draw_spike_train(screen, spike_train, screen_height - 20 - num * 20, 10, screen_width / show_n_spikes)   
             case GameStates.END:
                 ...
             

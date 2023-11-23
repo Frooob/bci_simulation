@@ -18,6 +18,9 @@ class Brain():
             recent_spikes.append([msg[1] for msg in neuron.spike_train.data[-n:]])
         return recent_spikes
     
+    def get_most_recent_measurement(self):
+        return [neuron.spike_train.data[-1][1] for neuron in self.neurons]
+
     def update(self, input_data):
         for neuron in self.neurons:
             neuron.update(input_data)
